@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Supernova Logbook</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="https://unpkg.com/lucide@latest"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-art" src="assets/supernova-poster.svg" alt="" />
+          <div>
+            <p class="eyebrow">Supernova DB</p>
+            <h1>덕질 일기장</h1>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="connection-pill" id="connectionStatus">
+            <span class="status-dot"></span>
+            미연결
+          </span>
+          <button class="icon-button" id="refreshEntries" type="button" title="새로고침" aria-label="새로고침">
+            <i data-lucide="refresh-cw" aria-hidden="true">↻</i>
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>DB 연결</h2>
+              <button class="icon-button" id="clearConfig" type="button" title="설정 삭제" aria-label="설정 삭제">
+                <i data-lucide="rotate-ccw" aria-hidden="true">↺</i>
+              </button>
+            </div>
+            <form class="stack" id="configForm">
+              <label>
+                <span>Supabase URL</span>
+                <input id="supabaseUrl" name="supabaseUrl" type="url" placeholder="https://project.supabase.co" autocomplete="off" />
+              </label>
+              <label>
+                <span>Anon key</span>
+                <input id="supabaseAnonKey" name="supabaseAnonKey" type="password" autocomplete="off" />
+              </label>
+              <button class="primary-button" type="submit">
+                <i data-lucide="plug-zap"></i>
+                <span>저장</span>
+              </button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>계정</h2>
+              <span class="mini-badge" id="authBadge">OFF</span>
+            </div>
+            <div id="signedOutView">
+              <form class="stack" id="authForm">
+                <label>
+                  <span>이메일</span>
+                  <input id="email" name="email" type="email" autocomplete="email" />
+                </label>
+                <label>
+                  <span>비밀번호</span>
+                  <input id="password" name="password" type="password" autocomplete="current-password" />
+                </label>
+                <div class="split-actions">
+                  <button class="primary-button" type="submit">
+                    <i data-lucide="log-in"></i>
+                    <span>로그인</span>
+                  </button>
+                  <button class="secondary-button" id="signUpButton" type="button">
+                    <i data-lucide="sparkles"></i>
+                    <span>가입</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+            <div class="signed-in" id="signedInView" hidden>
+              <div class="user-chip">
+                <i data-lucide="circle-user-round"></i>
+                <span id="userEmail">-</span>
+              </div>
+              <button class="secondary-button wide" id="signOutButton" type="button">
+                <i data-lucide="log-out"></i>
+                <span>로그아웃</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel stats-panel">
+            <div class="panel-header">
+              <h2>기록</h2>
+              <span class="mini-badge">LIVE</span>
+            </div>
+            <div class="stats-grid">
+              <div>
+                <span>전체</span>
+                <strong id="totalCount">0</strong>
+              </div>
+              <div>
+                <span>이번 달</span>
+                <strong id="monthCount">0</strong>
+              </div>
+              <div>
+                <span>연속</span>
+                <strong id="streakCount">0</strong>
+              </div>
+              <div>
+                <span>무드</span>
+                <strong id="topMood">-</strong>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="workspace">
+          <section class="editor panel">
+            <div class="panel-header">
+              <h2>오늘의 기록</h2>
+              <span class="mini-badge" id="editState">NEW</span>
+            </div>
+            <form class="entry-form" id="entryForm">
+              <label class="span-2">
+                <span>제목</span>
+                <input id="title" name="title" required maxlength="90" />
+              </label>
+              <label>
+                <span>날짜</span>
+                <input id="entryDate" name="entryDate" type="date" required />
+              </label>
+              <label>
+                <span>분류</span>
+                <select id="category" name="category">
+                  <option value="stage">무대</option>
+                  <option value="album">앨범</option>
+                  <option value="photo">사진</option>
+                  <option value="message">메시지</option>
+                  <option value="concert">콘서트</option>
+                  <option value="daily">일상</option>
+                </select>
+              </label>
+              <label>
+                <span>최애</span>
+                <input id="bias" name="bias" maxlength="40" />
+              </label>
+              <label>
+                <span>시대</span>
+                <input id="era" name="era" value="Supernova" maxlength="50" />
+              </label>
+              <label>
+                <span>무드</span>
+                <select id="mood" name="mood">
+                  <option value="cosmic">벅참</option>
+                  <option value="soft">몽글</option>
+                  <option value="hype">흥분</option>
+                  <option value="teary">눈물</option>
+                  <option value="calm">차분</option>
+                </select>
+              </label>
+              <label>
+                <span>별점</span>
+                <input id="rating" name="rating" type="number" min="1" max="5" value="5" />
+              </label>
+              <label class="span-2">
+                <span>이미지 URL</span>
+                <input id="mediaUrl" name="mediaUrl" type="url" placeholder="https://..." />
+              </label>
+              <label class="span-2">
+                <span>태그</span>
+                <input id="tags" name="tags" placeholder="컴백, 직캠, 레전드" />
+              </label>
+              <label class="span-2">
+                <span>일기</span>
+                <textarea id="body" name="body" rows="7"></textarea>
+              </label>
+              <div class="form-actions span-2">
+                <button class="primary-button" type="submit">
+                  <i data-lucide="save"></i>
+                  <span>저장</span>
+                </button>
+                <button class="secondary-button" id="resetEntry" type="button">
+                  <i data-lucide="eraser"></i>
+                  <span>비우기</span>
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="toolbar-panel">
+            <label class="search-box">
+              <i data-lucide="search"></i>
+              <input id="searchInput" type="search" placeholder="검색" />
+            </label>
+            <select id="categoryFilter" aria-label="분류 필터">
+              <option value="all">전체</option>
+              <option value="stage">무대</option>
+              <option value="album">앨범</option>
+              <option value="photo">사진</option>
+              <option value="message">메시지</option>
+              <option value="concert">콘서트</option>
+              <option value="daily">일상</option>
+            </select>
+            <select id="sortMode" aria-label="정렬">
+              <option value="date-desc">최신순</option>
+              <option value="date-asc">오래된순</option>
+              <option value="rating-desc">별점순</option>
+            </select>
+          </section>
+
+          <section class="entries-grid" id="entriesList" aria-live="polite"></section>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <template id="entryCardTemplate">
+      <article class="entry-card">
+        <div class="entry-cover" hidden>
+          <img alt="" />
+        </div>
+        <div class="entry-card-body">
+          <div class="entry-topline">
+            <time></time>
+            <span class="category-chip"></span>
+          </div>
+          <h3></h3>
+          <p class="entry-text"></p>
+          <div class="entry-meta">
+            <span class="meta-bias"></span>
+            <span class="meta-era"></span>
+            <span class="meta-mood"></span>
+            <span class="meta-rating"></span>
+          </div>
+          <div class="tag-list"></div>
+          <div class="card-actions">
+            <button class="icon-button edit-entry" type="button" title="수정" aria-label="수정">
+              <i data-lucide="pencil" aria-hidden="true">✎</i>
+            </button>
+            <button class="icon-button danger delete-entry" type="button" title="삭제" aria-label="삭제">
+              <i data-lucide="trash-2" aria-hidden="true">×</i>
+            </button>
+          </div>
+        </div>
+      </article>
+    </template>
+  </body>
+</html>
