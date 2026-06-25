@@ -235,7 +235,7 @@ async function handleSignIn(event) {
 
   const { error } = await state.client.auth.signInWithPassword({ email, password });
   if (error) {
-    showToast(error.message);
+    showToast(getAuthErrorMessage(error));
     return;
   }
 
@@ -256,14 +256,29 @@ async function handleSignUp() {
     return;
   }
 
-  const { error } = await state.client.auth.signUp({ email, password });
+  if (password.length < 6) {
+    showToast("비밀번호는 최소 6자로 입력해 주세요.");
+    return;
+  }
+
+  const { data, error } = await state.client.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
   if (error) {
-    showToast(error.message);
+    showToast(getAuthErrorMessage(error));
     return;
   }
 
   els.password.value = "";
-  showToast("가입 요청을 보냈어요.");
+  if (data.session) {
+    showToast("가입하고 로그인했어요.");
+  } else {
+    showToast("가입 요청을 보냈어요. 인증 메일을 확인해 주세요.");
+  }
 }
 
 async function handleSignOut() {
@@ -364,7 +379,6 @@ function renderEntries() {
 function makeEntryCard(entry) {
   const card = els.entryCardTemplate.content.firstElementChild.cloneNode(true);
   const cover = card.querySelector(".entry-cover");
-  const coverImage = cover.querySelector("img");
   const title = card.querySelector("h3");
   const text = card.querySelector(".entry-text");
   const time = card.querySelector("time");
@@ -377,15 +391,7 @@ function makeEntryCard(entry) {
   time.dateTime = entry.entry_date || "";
   category.textContent = categoryNames[entry.category] || entry.category || "일상";
 
-  if (entry.media_url && looksLikeImage(entry.media_url)) {
-    cover.hidden = false;
-    coverImage.src = entry.media_url;
-    coverImage.alt = entry.title || "";
-    coverImage.addEventListener("error", () => {
-      cover.hidden = true;
-      coverImage.removeAttribute("src");
-    });
-  }
+  renderMedia(cover, entry);
 
   setMeta(card.querySelector(".meta-bias"), entry.bias && `최애 ${entry.bias}`);
   setMeta(card.querySelector(".meta-era"), entry.era);
@@ -401,6 +407,35 @@ function makeEntryCard(entry) {
   card.querySelector(".edit-entry").addEventListener("click", () => editEntry(entry.id));
   card.querySelector(".delete-entry").addEventListener("click", () => deleteEntry(entry.id));
   return card;
+}
+
+function renderMedia(container, entry) {
+  if (!entry.media_url) return;
+
+  const youtubeUrl = getYouTubeEmbedUrl(entry.media_url);
+  if (youtubeUrl) {
+    const iframe = document.createElement("iframe");
+    iframe.src = youtubeUrl;
+    iframe.title = entry.title ? `${entry.title} YouTube 영상` : "YouTube 영상";
+    iframe.loading = "lazy";
+    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+    iframe.allowFullscreen = true;
+    container.appendChild(iframe);
+    container.hidden = false;
+    return;
+  }
+
+  if (looksLikeImage(entry.media_url)) {
+    const image = document.createElement("img");
+    image.src = entry.media_url;
+    image.alt = entry.title || "";
+    image.addEventListener("error", () => {
+      container.hidden = true;
+      image.remove();
+    });
+    container.appendChild(image);
+    container.hidden = false;
+  }
 }
 
 function setMeta(element, value) {
@@ -562,6 +597,36 @@ function showToast(message) {
   }, 3200);
 }
 
+function getAuthRedirectUrl() {
+  const url = new URL(window.location.href);
+  url.hash = "";
+  url.search = "";
+  return url.toString();
+}
+
+function getAuthErrorMessage(error) {
+  const message = String(error?.message || "");
+  const lower = message.toLowerCase();
+
+  if (lower.includes("email not confirmed")) {
+    return "이메일 인증이 아직 안 됐어요. 인증 메일을 먼저 확인해 주세요.";
+  }
+  if (lower.includes("invalid login credentials")) {
+    return "이메일이나 비밀번호가 맞지 않아요. 가입/인증 여부도 확인해 주세요.";
+  }
+  if (lower.includes("signup disabled")) {
+    return "Supabase Auth에서 가입이 꺼져 있어요.";
+  }
+  if (lower.includes("password")) {
+    return "비밀번호 조건을 확인해 주세요. 기본은 최소 6자예요.";
+  }
+  if (lower.includes("fetch") || lower.includes("failed to fetch")) {
+    return "Supabase URL 또는 anon key를 확인해 주세요.";
+  }
+
+  return message || "인증 처리에 실패했어요.";
+}
+
 function parseTags(value) {
   return value
     .split(",")
@@ -603,6 +668,51 @@ function todayIso() {
 
 function looksLikeImage(url) {
   return /\.(avif|gif|jpe?g|png|webp)(\?.*)?$/i.test(url);
+}
+
+function getYouTubeEmbedUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return "";
+  }
+
+  const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+  const isYouTube = host === "youtube.com" || host === "music.youtube.com" || host === "youtu.be";
+  if (!isYouTube) return "";
+
+  let videoId = "";
+  if (host === "youtu.be") {
+    videoId = url.pathname.split("/").filter(Boolean)[0] || "";
+  } else if (url.pathname === "/watch") {
+    videoId = url.searchParams.get("v") || "";
+  } else {
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (["embed", "shorts", "live"].includes(parts[0])) {
+      videoId = parts[1] || "";
+    }
+  }
+
+  if (!/^[\w-]{11}$/.test(videoId)) return "";
+
+  const embed = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  const start = parseYouTubeStart(url.searchParams.get("start") || url.searchParams.get("t"));
+  if (start) embed.searchParams.set("start", String(start));
+  return embed.toString();
+}
+
+function parseYouTubeStart(value) {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Number(value);
+
+  const match = String(value).match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?/i);
+  if (!match) return 0;
+
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  return hours * 3600 + minutes * 60 + seconds;
 }
 
 function refreshIcons() {
