@@ -169,8 +169,8 @@
                 <input id="rating" name="rating" type="number" min="1" max="5" value="5" />
               </label>
               <label class="span-2">
-                <span>이미지 URL</span>
-                <input id="mediaUrl" name="mediaUrl" type="url" placeholder="https://..." />
+                <span>이미지 / YouTube URL</span>
+                <input id="mediaUrl" name="mediaUrl" type="url" placeholder="https://youtu.be/... 또는 https://..." />
               </label>
               <label class="span-2">
                 <span>태그</span>
@@ -223,9 +223,7 @@
 
     <template id="entryCardTemplate">
       <article class="entry-card">
-        <div class="entry-cover" hidden>
-          <img alt="" />
-        </div>
+        <div class="entry-cover" hidden></div>
         <div class="entry-card-body">
           <div class="entry-topline">
             <time></time>
