@@ -1478,6 +1478,11 @@ async function getShareImageSource(url) {
     return data.signedUrl;
   }
 
+  const youtube = getYouTubeMedia(url);
+  if (youtube.thumbnailUrl) {
+    return youtube.thumbnailUrl;
+  }
+
   return looksLikeImage(url) ? url : "";
 }
 
@@ -1622,6 +1627,7 @@ function getYouTubeMedia(value) {
   return {
     embedUrl: embed.toString(),
     watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
+    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
   };
 }
 
