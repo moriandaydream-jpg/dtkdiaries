@@ -35,6 +35,8 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 
 별점은 선택 사항입니다. 비워두면 `없음`으로 저장되고 카드와 공유 이미지에는 별점이 표시되지 않습니다.
 
+사이트 안의 제목, 음악 정보, 본문은 말줄임표로 줄이지 않고 줄바꿈으로 표시합니다.
+
 ## 미디어 URL
 
 일기 작성 폼의 `이미지 / YouTube URL`에는 이미지 파일 URL이나 YouTube 링크를 넣을 수 있습니다. 지원하는 YouTube 형식은 `youtube.com/watch?v=...`, `youtu.be/...`, `youtube.com/shorts/...`, `youtube.com/embed/...`입니다.

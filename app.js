@@ -685,7 +685,7 @@ async function handleMusicSearch() {
 
   els.musicSearchButton.disabled = true;
   els.musicResults.hidden = false;
-  els.musicResults.replaceChildren(makeMusicResultStatus("검색 중..."));
+  els.musicResults.replaceChildren(makeMusicResultStatus("검색 중"));
 
   try {
     const url = new URL(MUSICBRAINZ_RECORDING_SEARCH_URL);
@@ -1365,9 +1365,7 @@ function getWrappedLines(ctx, text, maxWidth, maxLines) {
   if (line) lines.push(line);
 
   if (lines.length > maxLines) {
-    const clipped = lines.slice(0, maxLines);
-    clipped[maxLines - 1] = `${clipped[maxLines - 1].replace(/[.。…]+$/, "")}...`;
-    return clipped;
+    return lines.slice(0, maxLines);
   }
 
   return lines;

@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Supernova Logbook</title>
-    <link rel="stylesheet" href="styles.css?v=20260626-rating1" />
+    <link rel="stylesheet" href="styles.css?v=20260626-limit1" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="app.js?v=20260626-rating1"></script>
+    <script defer src="app.js?v=20260626-limit1"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -129,7 +129,7 @@
             <form class="entry-form" id="entryForm">
               <label class="span-2">
                 <span>제목</span>
-                <input id="title" name="title" required maxlength="90" />
+                <input id="title" name="title" required />
               </label>
               <div class="music-search span-2">
                 <label>
@@ -146,19 +146,19 @@
               </div>
               <label>
                 <span>곡 제목</span>
-                <input id="trackTitle" name="trackTitle" maxlength="140" />
+                <input id="trackTitle" name="trackTitle" />
               </label>
               <label>
                 <span>가수</span>
-                <input id="artistName" name="artistName" maxlength="140" />
+                <input id="artistName" name="artistName" />
               </label>
               <label>
                 <span>음반 제목</span>
-                <input id="albumTitle" name="albumTitle" maxlength="180" />
+                <input id="albumTitle" name="albumTitle" />
               </label>
               <label>
                 <span>발매일</span>
-                <input id="releaseDate" name="releaseDate" maxlength="40" placeholder="YYYY 또는 YYYY-MM-DD" />
+                <input id="releaseDate" name="releaseDate" placeholder="YYYY 또는 YYYY-MM-DD" />
               </label>
               <input id="musicbrainzRecordingId" name="musicbrainzRecordingId" type="hidden" />
               <input id="musicbrainzReleaseId" name="musicbrainzReleaseId" type="hidden" />
@@ -179,11 +179,11 @@
               </label>
               <label>
                 <span>최애</span>
-                <input id="bias" name="bias" maxlength="40" />
+                <input id="bias" name="bias" />
               </label>
               <label>
                 <span>시대</span>
-                <input id="era" name="era" value="Supernova" maxlength="50" />
+                <input id="era" name="era" value="Supernova" />
               </label>
               <fieldset class="mood-field">
                 <span>무드</span>
@@ -236,7 +236,7 @@
               </label>
               <label class="span-2">
                 <span>이미지 / YouTube URL</span>
-                <input id="mediaUrl" name="mediaUrl" type="text" inputmode="url" placeholder="https://youtu.be/... 또는 https://..." />
+                <input id="mediaUrl" name="mediaUrl" type="text" inputmode="url" placeholder="YouTube 링크 또는 이미지 URL" />
               </label>
               <div class="media-upload span-2">
                 <label>

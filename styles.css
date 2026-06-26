@@ -363,9 +363,7 @@ i[data-lucide] {
 
 .user-chip span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .stats-grid {
@@ -395,9 +393,7 @@ i[data-lucide] {
   min-width: 0;
   font-size: 1.45rem;
   line-height: 1.05;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .entry-form {
@@ -520,9 +516,7 @@ i[data-lucide] {
 .music-result strong,
 .music-result span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .music-result strong {
@@ -681,15 +675,12 @@ i[data-lucide] {
 }
 
 .entry-text {
-  display: -webkit-box;
   min-height: 68px;
   margin-bottom: 12px;
   color: #333a37;
   line-height: 1.55;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .entry-music {
@@ -703,9 +694,7 @@ i[data-lucide] {
 .entry-music strong,
 .entry-music span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .entry-music strong {
