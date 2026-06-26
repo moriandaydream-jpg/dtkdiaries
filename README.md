@@ -9,15 +9,17 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 - `app.js`: Supabase 연결, 로그인, 일기 저장/수정/삭제, 음악 메타데이터 검색, 이미지/YouTube 표시, 감상 카드 PNG 내보내기
 - `supabase-schema.sql`: 테이블, 인덱스, RLS 정책
 - `supabase-music-migration.sql`: 기존 DB에 음악 메타데이터 컬럼 추가
+- `supabase-storage-setup.sql`: 이미지 업로드용 private Storage 버킷과 정책
 - `assets/supernova-poster.svg`: 앱 배지 이미지
 
 ## Supabase 설정
 
 1. Supabase 프로젝트를 만듭니다.
 2. SQL Editor에서 `supabase-schema.sql` 내용을 실행합니다.
-3. Authentication > Providers에서 Email 로그인을 켭니다.
-4. Project Settings > API에서 Project URL과 `anon public` key를 확인합니다.
-5. 배포된 사이트의 `DB 연결`에 URL과 anon key를 저장합니다.
+3. 사진 업로드를 쓸 경우 SQL Editor에서 `supabase-storage-setup.sql` 내용을 실행합니다.
+4. Authentication > Providers에서 Email 로그인을 켭니다.
+5. Project Settings > API에서 Project URL과 `anon public` key를 확인합니다.
+6. 배포된 사이트의 `DB 연결`에 URL과 anon key를 저장합니다.
 
 `service_role` key는 브라우저에 넣지 마세요. 이 앱은 공개 가능한 anon key와 RLS 정책을 기준으로 동작합니다.
 
@@ -30,6 +32,12 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 ## 미디어 URL
 
 일기 작성 폼의 `이미지 / YouTube URL`에는 이미지 파일 URL이나 YouTube 링크를 넣을 수 있습니다. 지원하는 YouTube 형식은 `youtube.com/watch?v=...`, `youtu.be/...`, `youtube.com/shorts/...`, `youtube.com/embed/...`입니다.
+
+## 이미지 업로드
+
+`이미지 업로드`에서 파일을 고르고 업로드하면 Supabase Storage의 `diary-media` 버킷에 저장됩니다. DB에는 실제 이미지 파일이 아니라 `supabase://diary-media/...` 경로만 저장되고, 화면에서는 로그인한 사용자에게 signed URL로 이미지를 보여줍니다.
+
+버킷은 private으로 만들고 정책은 `사용자ID/파일명` 경로만 허용합니다. 사진 용량은 파일당 8MB까지이며, GIF를 제외한 이미지는 브라우저에서 긴 변 1600px JPEG로 줄여 업로드합니다.
 
 ## 이미지로 공유
 

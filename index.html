@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Supernova Logbook</title>
-    <link rel="stylesheet" href="styles.css?v=20260626-music1" />
+    <link rel="stylesheet" href="styles.css?v=20260626-storage1" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="app.js?v=20260626-music1"></script>
+    <script defer src="app.js?v=20260626-storage1"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -201,8 +201,18 @@
               </label>
               <label class="span-2">
                 <span>이미지 / YouTube URL</span>
-                <input id="mediaUrl" name="mediaUrl" type="url" placeholder="https://youtu.be/... 또는 https://..." />
+                <input id="mediaUrl" name="mediaUrl" type="text" inputmode="url" placeholder="https://youtu.be/... 또는 https://..." />
               </label>
+              <div class="media-upload span-2">
+                <label>
+                  <span>이미지 업로드</span>
+                  <input id="mediaFile" name="mediaFile" type="file" accept="image/*" />
+                </label>
+                <button class="secondary-button" id="uploadImageButton" type="button">
+                  <i data-lucide="upload"></i>
+                  <span>업로드</span>
+                </button>
+              </div>
               <label class="span-2">
                 <span>태그</span>
                 <input id="tags" name="tags" placeholder="컴백, 직캠, 레전드" />

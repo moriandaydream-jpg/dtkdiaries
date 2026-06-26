@@ -3,6 +3,9 @@
 const TABLE_NAME = "fandom_diary_entries";
 const CONFIG_KEY = "supernova-logbook:supabase";
 const MUSICBRAINZ_RECORDING_SEARCH_URL = "https://musicbrainz.org/ws/2/recording";
+const STORAGE_BUCKET = "diary-media";
+const STORAGE_URL_PREFIX = `supabase://${STORAGE_BUCKET}/`;
+const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 const categoryNames = {
   stage: "무대",
@@ -72,6 +75,8 @@ const els = {
   mood: $("mood"),
   rating: $("rating"),
   mediaUrl: $("mediaUrl"),
+  mediaFile: $("mediaFile"),
+  uploadImageButton: $("uploadImageButton"),
   tags: $("tags"),
   body: $("body"),
   searchInput: $("searchInput"),
@@ -102,6 +107,7 @@ function bindEvents() {
   els.signOutButton.addEventListener("click", handleSignOut);
   els.musicSearchButton.addEventListener("click", handleMusicSearch);
   els.musicSearch.addEventListener("keydown", handleMusicSearchKeydown);
+  els.uploadImageButton.addEventListener("click", handleImageUpload);
   els.entryForm.addEventListener("submit", handleEntrySave);
   els.resetEntry.addEventListener("click", resetEntryForm);
   els.refreshEntries.addEventListener("click", fetchEntries);
@@ -333,6 +339,7 @@ async function handleEntrySave(event) {
 
   try {
     let result;
+    const previousEntry = state.editingId ? state.entries.find((entry) => entry.id === state.editingId) : null;
     if (state.editingId) {
       result = await state.client.from(TABLE_NAME).update(payload).eq("id", state.editingId);
     } else {
@@ -340,6 +347,9 @@ async function handleEntrySave(event) {
     }
 
     if (result.error) throw result.error;
+    if (previousEntry && previousEntry.media_url !== payload.media_url) {
+      await removeStorageMedia(previousEntry?.media_url);
+    }
 
     await fetchEntries();
     resetEntryForm();
@@ -455,6 +465,11 @@ function renderMusicSummary(container, entry) {
 function renderMedia(container, entry) {
   if (!entry.media_url) return;
 
+  if (isSupabaseStorageUrl(entry.media_url)) {
+    renderSupabaseStorageImage(container, entry);
+    return;
+  }
+
   const youtube = getYouTubeMedia(entry.media_url);
   if (youtube.embedUrl) {
     const iframe = document.createElement("iframe");
@@ -494,7 +509,43 @@ function renderMedia(container, entry) {
   renderMediaLink(container, entry.media_url);
 }
 
+async function renderSupabaseStorageImage(container, entry) {
+  if (!state.client) return;
+
+  const path = getSupabaseStoragePath(entry.media_url);
+  if (!path) return;
+
+  const image = document.createElement("img");
+  image.alt = entry.title || "";
+  image.decoding = "async";
+  image.addEventListener("error", () => {
+    image.remove();
+    renderMediaLink(container, entry.media_url);
+  });
+
+  container.appendChild(image);
+  container.hidden = false;
+
+  const { data, error } = await state.client.storage.from(STORAGE_BUCKET).createSignedUrl(path, 60 * 30);
+  if (error || !data?.signedUrl) {
+    image.remove();
+    renderMediaLink(container, entry.media_url);
+    return;
+  }
+
+  image.src = data.signedUrl;
+}
+
 function renderMediaLink(container, url) {
+  if (isSupabaseStorageUrl(url)) {
+    const status = document.createElement("div");
+    status.className = "media-link media-link-only";
+    status.textContent = "업로드 이미지를 열 수 없어요";
+    container.appendChild(status);
+    container.hidden = false;
+    return;
+  }
+
   const link = document.createElement("a");
   link.className = "media-link media-link-only";
   link.href = url;
@@ -503,6 +554,113 @@ function renderMediaLink(container, url) {
   link.textContent = "미디어 열기";
   container.appendChild(link);
   container.hidden = false;
+}
+
+async function handleImageUpload() {
+  if (!state.client || !state.session) {
+    showToast("이미지 업로드는 로그인이 필요해요.");
+    return;
+  }
+
+  const file = els.mediaFile.files?.[0];
+  if (!file) {
+    showToast("업로드할 이미지를 선택해 주세요.");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    showToast("이미지 파일만 업로드할 수 있어요.");
+    return;
+  }
+
+  if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+    showToast("이미지는 8MB 이하로 선택해 주세요.");
+    return;
+  }
+
+  els.uploadImageButton.disabled = true;
+
+  try {
+    const prepared = await prepareImageUpload(file);
+    const path = makeStoragePath(prepared.fileName);
+    const { error } = await state.client.storage.from(STORAGE_BUCKET).upload(path, prepared.blob, {
+      cacheControl: "3600",
+      contentType: prepared.contentType,
+      upsert: false,
+    });
+
+    if (error) throw error;
+
+    els.mediaUrl.value = `${STORAGE_URL_PREFIX}${path}`;
+    els.mediaFile.value = "";
+    showToast("이미지를 업로드했어요.");
+  } catch (error) {
+    showToast(getStorageErrorMessage(error));
+  } finally {
+    els.uploadImageButton.disabled = false;
+  }
+}
+
+async function prepareImageUpload(file) {
+  if (!window.createImageBitmap || file.type === "image/gif") {
+    return {
+      blob: file,
+      contentType: file.type || "application/octet-stream",
+      fileName: safeFileName(file.name),
+    };
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((nextBlob) => {
+        if (nextBlob) resolve(nextBlob);
+        else reject(new Error("이미지를 변환하지 못했어요."));
+      }, "image/jpeg", 0.86);
+    });
+
+    return {
+      blob,
+      contentType: "image/jpeg",
+      fileName: `${removeFileExtension(file.name)}.jpg`,
+    };
+  } catch {
+    return {
+      blob: file,
+      contentType: file.type || "application/octet-stream",
+      fileName: safeFileName(file.name),
+    };
+  }
+}
+
+function makeStoragePath(fileName) {
+  const userId = state.session.user.id;
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `${userId}/${unique}-${safeFileName(fileName)}`;
+}
+
+function safeFileName(fileName) {
+  const cleaned = String(fileName || "image")
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return cleaned || "image.jpg";
+}
+
+function removeFileExtension(fileName) {
+  return safeFileName(fileName).replace(/\.[^.]+$/, "") || "image";
 }
 
 function handleMusicSearchKeydown(event) {
@@ -704,12 +862,14 @@ async function deleteEntry(id) {
   const ok = window.confirm("이 기록을 삭제할까요?");
   if (!ok) return;
 
+  const entry = state.entries.find((item) => item.id === id);
   const { error } = await state.client.from(TABLE_NAME).delete().eq("id", id);
   if (error) {
     showToast(error.message);
     return;
   }
 
+  await removeStorageMedia(entry?.media_url);
   if (state.editingId === id) resetEntryForm();
   await fetchEntries();
   showToast("삭제했어요.");
@@ -866,6 +1026,26 @@ function getDatabaseErrorMessage(error) {
   }
 
   return message || "저장하지 못했어요.";
+}
+
+function getStorageErrorMessage(error) {
+  const message = String(error?.message || "");
+  const lower = message.toLowerCase();
+
+  if (lower.includes("bucket not found") || lower.includes("not found")) {
+    return "diary-media 버킷이 필요해요. supabase-storage-setup.sql을 먼저 실행해 주세요.";
+  }
+  if (lower.includes("row-level security") || lower.includes("policy") || lower.includes("unauthorized")) {
+    return "Storage 정책을 확인해 주세요. 본인 폴더에만 업로드할 수 있어요.";
+  }
+  if (lower.includes("mime") || lower.includes("file extension")) {
+    return "지원하는 이미지 형식을 확인해 주세요.";
+  }
+  if (lower.includes("payload") || lower.includes("too large") || lower.includes("size")) {
+    return "이미지는 8MB 이하로 선택해 주세요.";
+  }
+
+  return message || "이미지 업로드에 실패했어요.";
 }
 
 function parseTags(value) {
@@ -1105,6 +1285,9 @@ function getWrappedLines(ctx, text, maxWidth, maxLines) {
 
 function getShareMediaLabel(url) {
   if (!url) return null;
+  if (isSupabaseStorageUrl(url)) {
+    return { label: "UPLOADED IMAGE", value: "Supabase Storage" };
+  }
   const youtube = getYouTubeMedia(url);
   if (youtube.watchUrl) {
     return { label: "YOUTUBE", value: youtube.watchUrl };
@@ -1158,6 +1341,25 @@ function todayIso() {
 
 function looksLikeImage(url) {
   return /\.(avif|gif|jpe?g|png|webp)(\?.*)?$/i.test(url);
+}
+
+function isSupabaseStorageUrl(value) {
+  return String(value || "").startsWith(STORAGE_URL_PREFIX);
+}
+
+function getSupabaseStoragePath(value) {
+  if (!isSupabaseStorageUrl(value)) return "";
+  try {
+    return decodeURIComponent(String(value).slice(STORAGE_URL_PREFIX.length).replace(/^\/+/, ""));
+  } catch {
+    return "";
+  }
+}
+
+async function removeStorageMedia(value) {
+  const path = getSupabaseStoragePath(value);
+  if (!path || !state.client) return;
+  await state.client.storage.from(STORAGE_BUCKET).remove([path]).catch(() => {});
 }
 
 function getYouTubeMedia(value) {
