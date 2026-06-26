@@ -1,4 +1,4 @@
-# DREAMTAKU DIARIES
+# DREAMTAKU DIARY
 
 GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 GitHub Pages가 서빙하고, 백엔드는 Supabase Auth + Supabase Postgres입니다. 기본 시대 값은 `Supernova`로 잡았습니다.
 

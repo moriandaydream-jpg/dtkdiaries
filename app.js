@@ -954,8 +954,8 @@ async function shareEntryImage(id) {
     if (navigator.canShare?.({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: entry.title || "dreamtaKU DIARIES",
-        text: "dreamtaKU DIARIES 감상 카드",
+        title: entry.title || "DREAMTAKU DIARY",
+        text: "DREAMTAKU DIARY 감상 카드",
       });
       showToast("이미지 공유를 열었어요.");
       return;
@@ -1173,7 +1173,7 @@ async function createShareCardBlob(entry) {
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "900 42px system-ui, sans-serif";
-  ctx.fillText("dreamtaKU DIARIES", 108, 360);
+  ctx.fillText("DREAMTAKU DIARY", 108, 360);
   ctx.fillStyle = coral;
   ctx.font = "800 24px system-ui, sans-serif";
   ctx.fillText("MUSIC FANDOM NOTE", 108, 400);
@@ -1235,7 +1235,7 @@ async function createShareCardBlob(entry) {
 
   ctx.fillStyle = muted;
   ctx.font = "800 22px system-ui, sans-serif";
-  ctx.fillText("exported from dreamtaKU DIARIES", 108, height - 118);
+  ctx.fillText("exported from DREAMTAKU DIARY", 108, height - 118);
 
   try {
     return await new Promise((resolve, reject) => {
