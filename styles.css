@@ -442,8 +442,10 @@ i[data-lucide] {
 }
 
 .entry-cover {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  min-height: 180px;
   background: #eaf5f2;
   overflow: hidden;
 }
@@ -461,6 +463,36 @@ i[data-lucide] {
 
 .entry-cover iframe {
   border: 0;
+  background: #161817;
+}
+
+.entry-cover.is-video {
+  background: #161817;
+}
+
+.media-link {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(22, 24, 23, 0.78);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 0 10px;
+  text-decoration: none;
+}
+
+.media-link-only {
+  inset: 0;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
   background: #161817;
 }
 

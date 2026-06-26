@@ -412,15 +412,25 @@ function makeEntryCard(entry) {
 function renderMedia(container, entry) {
   if (!entry.media_url) return;
 
-  const youtubeUrl = getYouTubeEmbedUrl(entry.media_url);
-  if (youtubeUrl) {
+  const youtube = getYouTubeMedia(entry.media_url);
+  if (youtube.embedUrl) {
     const iframe = document.createElement("iframe");
-    iframe.src = youtubeUrl;
+    iframe.src = youtube.embedUrl;
     iframe.title = entry.title ? `${entry.title} YouTube 영상` : "YouTube 영상";
-    iframe.loading = "lazy";
     iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
     iframe.allowFullscreen = true;
+    iframe.referrerPolicy = "strict-origin-when-cross-origin";
+
+    const fallback = document.createElement("a");
+    fallback.className = "media-link";
+    fallback.href = youtube.watchUrl;
+    fallback.target = "_blank";
+    fallback.rel = "noopener noreferrer";
+    fallback.textContent = "YouTube에서 열기";
+
+    container.classList.add("is-video");
     container.appendChild(iframe);
+    container.appendChild(fallback);
     container.hidden = false;
     return;
   }
@@ -430,12 +440,26 @@ function renderMedia(container, entry) {
     image.src = entry.media_url;
     image.alt = entry.title || "";
     image.addEventListener("error", () => {
-      container.hidden = true;
       image.remove();
+      renderMediaLink(container, entry.media_url);
     });
     container.appendChild(image);
     container.hidden = false;
+    return;
   }
+
+  renderMediaLink(container, entry.media_url);
+}
+
+function renderMediaLink(container, url) {
+  const link = document.createElement("a");
+  link.className = "media-link media-link-only";
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "미디어 열기";
+  container.appendChild(link);
+  container.hidden = false;
 }
 
 function setMeta(element, value) {
@@ -670,17 +694,17 @@ function looksLikeImage(url) {
   return /\.(avif|gif|jpe?g|png|webp)(\?.*)?$/i.test(url);
 }
 
-function getYouTubeEmbedUrl(value) {
+function getYouTubeMedia(value) {
   let url;
   try {
     url = new URL(value);
   } catch {
-    return "";
+    return { embedUrl: "", watchUrl: "" };
   }
 
   const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
   const isYouTube = host === "youtube.com" || host === "music.youtube.com" || host === "youtu.be";
-  if (!isYouTube) return "";
+  if (!isYouTube) return { embedUrl: "", watchUrl: "" };
 
   let videoId = "";
   if (host === "youtu.be") {
@@ -694,12 +718,21 @@ function getYouTubeEmbedUrl(value) {
     }
   }
 
-  if (!/^[\w-]{11}$/.test(videoId)) return "";
+  videoId = normalizeYouTubeVideoId(videoId || value);
+  if (!videoId) return { embedUrl: "", watchUrl: "" };
 
-  const embed = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+  const embed = new URL(`https://www.youtube.com/embed/${videoId}`);
   const start = parseYouTubeStart(url.searchParams.get("start") || url.searchParams.get("t"));
   if (start) embed.searchParams.set("start", String(start));
-  return embed.toString();
+  return {
+    embedUrl: embed.toString(),
+    watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
+  };
+}
+
+function normalizeYouTubeVideoId(value) {
+  const match = String(value).match(/[\w-]{11}/);
+  return match ? match[0] : "";
 }
 
 function parseYouTubeStart(value) {
