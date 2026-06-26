@@ -211,10 +211,20 @@ label {
   min-width: 0;
 }
 
-label span {
+label span,
+.mood-field > span {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.mood-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 
 input,
@@ -415,6 +425,58 @@ i[data-lucide] {
 .media-upload input[type="file"] {
   min-width: 0;
   padding: 8px 10px;
+}
+
+.mood-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.mood-picker label {
+  display: inline-flex;
+  min-width: 0;
+  gap: 0;
+}
+
+.mood-picker input {
+  position: absolute;
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mood-picker span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fffefa;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+  padding: 0 11px;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.mood-picker input:checked + span {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(22, 24, 23, 0.14);
+}
+
+.mood-picker input:focus + span {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(40, 194, 209, 0.16);
 }
 
 .search-action {
@@ -669,12 +731,33 @@ i[data-lucide] {
   font-weight: 800;
 }
 
-.entry-meta span {
+.entry-meta > span {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  padding: 0 9px;
+}
+
+.mood-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mood-chip-list[hidden] {
+  display: none;
+}
+
+.mood-chip-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f7f8f3;
+  color: var(--muted);
   padding: 0 9px;
 }
 

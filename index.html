@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Supernova Logbook</title>
-    <link rel="stylesheet" href="styles.css?v=20260626-image1" />
+    <link rel="stylesheet" href="styles.css?v=20260626-rating1" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="app.js?v=20260626-image1"></script>
+    <script defer src="app.js?v=20260626-rating1"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -185,19 +185,54 @@
                 <span>시대</span>
                 <input id="era" name="era" value="Supernova" maxlength="50" />
               </label>
-              <label>
+              <fieldset class="mood-field">
                 <span>무드</span>
-                <select id="mood" name="mood">
-                  <option value="cosmic">벅참</option>
-                  <option value="soft">몽글</option>
-                  <option value="hype">흥분</option>
-                  <option value="teary">눈물</option>
-                  <option value="calm">차분</option>
-                </select>
-              </label>
+                <div class="mood-picker" id="mood" role="group" aria-label="무드">
+                  <label>
+                    <input name="mood" type="checkbox" value="cosmic" checked />
+                    <span>벅참</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="soft" />
+                    <span>몽글</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="hype" />
+                    <span>흥분</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="teary" />
+                    <span>눈물</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="calm" />
+                    <span>차분</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="sparkle" />
+                    <span>설렘</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="nostalgic" />
+                    <span>아련</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="addictive" />
+                    <span>중독</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="proud" />
+                    <span>뿌듯</span>
+                  </label>
+                  <label>
+                    <input name="mood" type="checkbox" value="shocked" />
+                    <span>충격</span>
+                  </label>
+                </div>
+              </fieldset>
               <label>
                 <span>별점</span>
-                <input id="rating" name="rating" type="number" min="1" max="5" value="5" />
+                <input id="rating" name="rating" type="number" min="1" max="5" placeholder="없음" />
               </label>
               <label class="span-2">
                 <span>이미지 / YouTube URL</span>
@@ -276,7 +311,7 @@
           <div class="entry-meta">
             <span class="meta-bias"></span>
             <span class="meta-era"></span>
-            <span class="meta-mood"></span>
+            <div class="meta-mood mood-chip-list" hidden></div>
             <span class="meta-rating"></span>
           </div>
           <div class="tag-list"></div>

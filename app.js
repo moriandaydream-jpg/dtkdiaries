@@ -22,6 +22,11 @@ const moodNames = {
   hype: "흥분",
   teary: "눈물",
   calm: "차분",
+  sparkle: "설렘",
+  nostalgic: "아련",
+  addictive: "중독",
+  proud: "뿌듯",
+  shocked: "충격",
 };
 
 const state = {
@@ -325,7 +330,7 @@ async function handleEntrySave(event) {
     category: els.category.value,
     bias: nullableText(els.bias.value),
     era: nullableText(els.era.value) || "Supernova",
-    mood: nullableText(els.mood.value),
+    mood: nullableText(serializeMoods(getSelectedMoods())),
     rating: parseRating(els.rating.value),
     media_url: nullableText(els.mediaUrl.value),
     tags: parseTags(els.tags.value),
@@ -425,7 +430,7 @@ function makeEntryCard(entry) {
 
   setMeta(card.querySelector(".meta-bias"), entry.bias && `최애 ${entry.bias}`);
   setMeta(card.querySelector(".meta-era"), entry.era);
-  setMeta(card.querySelector(".meta-mood"), moodNames[entry.mood] || entry.mood);
+  renderMoodChips(card.querySelector(".meta-mood"), entry.mood);
   setMeta(card.querySelector(".meta-rating"), entry.rating ? `${entry.rating}/5` : "");
 
   (entry.tags || []).forEach((tag) => {
@@ -790,6 +795,65 @@ function setMeta(element, value) {
   element.textContent = value;
 }
 
+function getSelectedMoods() {
+  return [...els.mood.querySelectorAll("input[name='mood']:checked")].map((input) => input.value);
+}
+
+function setSelectedMoods(moods) {
+  const selected = new Set(parseMoods(moods));
+  els.mood.querySelectorAll("input[name='mood']").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+
+function parseMoods(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(",");
+  const seen = new Set();
+  return values
+    .map(normalizeMood)
+    .filter(Boolean)
+    .filter((mood) => {
+      if (seen.has(mood)) return false;
+      seen.add(mood);
+      return true;
+    })
+    .slice(0, 10);
+}
+
+function normalizeMood(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (moodNames[trimmed]) return trimmed;
+
+  const matched = Object.entries(moodNames).find(([, label]) => label === trimmed);
+  return matched?.[0] || trimmed;
+}
+
+function serializeMoods(moods) {
+  return parseMoods(moods).join(",");
+}
+
+function moodLabel(mood) {
+  return moodNames[mood] || mood;
+}
+
+function renderMoodChips(container, moodValue) {
+  const moods = parseMoods(moodValue);
+  container.replaceChildren();
+
+  if (!moods.length) {
+    container.hidden = true;
+    return;
+  }
+
+  moods.forEach((mood) => {
+    const chip = document.createElement("span");
+    chip.textContent = moodLabel(mood);
+    container.appendChild(chip);
+  });
+  container.hidden = false;
+}
+
 function makeEmptyState(message) {
   const empty = document.createElement("div");
   empty.className = "empty-state";
@@ -814,6 +878,7 @@ function getVisibleEntries() {
       entry.era,
       entry.category,
       entry.mood,
+      ...parseMoods(entry.mood).map(moodLabel),
       ...(entry.tags || []),
     ]
       .filter(Boolean)
@@ -851,8 +916,8 @@ function editEntry(id) {
   els.category.value = entry.category || "daily";
   els.bias.value = entry.bias || "";
   els.era.value = entry.era || "Supernova";
-  els.mood.value = entry.mood || "cosmic";
-  els.rating.value = entry.rating || 5;
+  setSelectedMoods(parseMoods(entry.mood));
+  els.rating.value = entry.rating ?? "";
   els.mediaUrl.value = entry.media_url || "";
   els.tags.value = (entry.tags || []).join(", ");
   els.body.value = entry.body || "";
@@ -913,7 +978,7 @@ function resetEntryForm() {
   els.musicbrainzReleaseId.value = "";
   els.entryDate.value = todayIso();
   els.era.value = "Supernova";
-  els.rating.value = 5;
+  els.rating.value = "";
   els.editState.textContent = "NEW";
 }
 
@@ -936,12 +1001,12 @@ function updateStats() {
   const entries = state.entries;
   const currentMonth = todayIso().slice(0, 7);
   const monthCount = entries.filter((entry) => String(entry.entry_date || "").startsWith(currentMonth)).length;
-  const mood = mostCommon(entries.map((entry) => entry.mood).filter(Boolean));
+  const mood = mostCommon(entries.flatMap((entry) => parseMoods(entry.mood)));
 
   els.totalCount.textContent = String(entries.length);
   els.monthCount.textContent = String(monthCount);
   els.streakCount.textContent = String(getStreak(entries));
-  els.topMood.textContent = mood ? moodNames[mood] || mood : "-";
+  els.topMood.textContent = mood ? moodLabel(mood) : "-";
 }
 
 function getStreak(entries) {
@@ -1139,7 +1204,7 @@ async function createShareCardBlob(entry) {
   const meta = [
     entry.bias && `최애 ${entry.bias}`,
     entry.era || "Supernova",
-    entry.mood && (moodNames[entry.mood] || entry.mood),
+    ...parseMoods(entry.mood).map(moodLabel),
     entry.rating && `${entry.rating}/5`,
   ].filter(Boolean);
 
