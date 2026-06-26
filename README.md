@@ -6,8 +6,9 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 
 - `index.html`: 앱 화면
 - `styles.css`: 반응형 스타일
-- `app.js`: Supabase 연결, 로그인, 일기 저장/수정/삭제, 이미지/YouTube 표시, 감상 카드 PNG 내보내기
+- `app.js`: Supabase 연결, 로그인, 일기 저장/수정/삭제, 음악 메타데이터 검색, 이미지/YouTube 표시, 감상 카드 PNG 내보내기
 - `supabase-schema.sql`: 테이블, 인덱스, RLS 정책
+- `supabase-music-migration.sql`: 기존 DB에 음악 메타데이터 컬럼 추가
 - `assets/supernova-poster.svg`: 앱 배지 이미지
 
 ## Supabase 설정
@@ -19,6 +20,12 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 5. 배포된 사이트의 `DB 연결`에 URL과 anon key를 저장합니다.
 
 `service_role` key는 브라우저에 넣지 마세요. 이 앱은 공개 가능한 anon key와 RLS 정책을 기준으로 동작합니다.
+
+이미 `fandom_diary_entries` 테이블을 만든 상태에서 음악 메타데이터 기능만 추가한다면 SQL Editor에서 `supabase-music-migration.sql`을 한 번 실행하세요.
+
+## 음악 메타데이터
+
+작성 폼의 `디깅 검색`은 MusicBrainz에서 곡 메타데이터를 검색해서 `곡 제목`, `가수`, `음반 제목`, `발매일`을 채웁니다. 음원 파일이나 미리듣기는 저장하지 않고 텍스트 메타데이터와 링크만 저장합니다. 검색이 안 되면 같은 필드에 직접 입력해도 됩니다.
 
 ## 미디어 URL
 

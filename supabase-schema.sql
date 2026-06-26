@@ -4,6 +4,12 @@ create table if not exists public.fandom_diary_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   title text not null,
+  track_title text,
+  artist_name text,
+  album_title text,
+  release_date text,
+  musicbrainz_recording_id uuid,
+  musicbrainz_release_id uuid,
   entry_date date not null default current_date,
   category text not null default 'daily',
   bias text,
@@ -16,6 +22,14 @@ create table if not exists public.fandom_diary_entries (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.fandom_diary_entries
+  add column if not exists track_title text,
+  add column if not exists artist_name text,
+  add column if not exists album_title text,
+  add column if not exists release_date text,
+  add column if not exists musicbrainz_recording_id uuid,
+  add column if not exists musicbrainz_release_id uuid;
 
 create index if not exists fandom_diary_entries_user_date_idx
   on public.fandom_diary_entries (user_id, entry_date desc, created_at desc);

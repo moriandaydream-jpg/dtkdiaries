@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Supernova Logbook</title>
-    <link rel="stylesheet" href="styles.css?v=20260626-share1" />
+    <link rel="stylesheet" href="styles.css?v=20260626-music1" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="https://unpkg.com/lucide@latest"></script>
-    <script defer src="app.js?v=20260626-share1"></script>
+    <script defer src="app.js?v=20260626-music1"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -131,6 +131,37 @@
                 <span>제목</span>
                 <input id="title" name="title" required maxlength="90" />
               </label>
+              <div class="music-search span-2">
+                <label>
+                  <span>디깅 검색</span>
+                  <div class="search-action">
+                    <input id="musicSearch" name="musicSearch" type="search" placeholder="곡 제목, 가수, 음반 검색" autocomplete="off" />
+                    <button class="secondary-button" id="musicSearchButton" type="button">
+                      <i data-lucide="disc-3"></i>
+                      <span>검색</span>
+                    </button>
+                  </div>
+                </label>
+                <div class="music-results" id="musicResults" hidden></div>
+              </div>
+              <label>
+                <span>곡 제목</span>
+                <input id="trackTitle" name="trackTitle" maxlength="140" />
+              </label>
+              <label>
+                <span>가수</span>
+                <input id="artistName" name="artistName" maxlength="140" />
+              </label>
+              <label>
+                <span>음반 제목</span>
+                <input id="albumTitle" name="albumTitle" maxlength="180" />
+              </label>
+              <label>
+                <span>발매일</span>
+                <input id="releaseDate" name="releaseDate" maxlength="40" placeholder="YYYY 또는 YYYY-MM-DD" />
+              </label>
+              <input id="musicbrainzRecordingId" name="musicbrainzRecordingId" type="hidden" />
+              <input id="musicbrainzReleaseId" name="musicbrainzReleaseId" type="hidden" />
               <label>
                 <span>날짜</span>
                 <input id="entryDate" name="entryDate" type="date" required />
@@ -230,6 +261,7 @@
             <span class="category-chip"></span>
           </div>
           <h3></h3>
+          <div class="entry-music" hidden></div>
           <p class="entry-text"></p>
           <div class="entry-meta">
             <span class="meta-bias"></span>

@@ -2,6 +2,7 @@
 
 const TABLE_NAME = "fandom_diary_entries";
 const CONFIG_KEY = "supernova-logbook:supabase";
+const MUSICBRAINZ_RECORDING_SEARCH_URL = "https://musicbrainz.org/ws/2/recording";
 
 const categoryNames = {
   stage: "무대",
@@ -55,6 +56,15 @@ const els = {
   editState: $("editState"),
   resetEntry: $("resetEntry"),
   title: $("title"),
+  musicSearch: $("musicSearch"),
+  musicSearchButton: $("musicSearchButton"),
+  musicResults: $("musicResults"),
+  trackTitle: $("trackTitle"),
+  artistName: $("artistName"),
+  albumTitle: $("albumTitle"),
+  releaseDate: $("releaseDate"),
+  musicbrainzRecordingId: $("musicbrainzRecordingId"),
+  musicbrainzReleaseId: $("musicbrainzReleaseId"),
   entryDate: $("entryDate"),
   category: $("category"),
   bias: $("bias"),
@@ -90,6 +100,8 @@ function bindEvents() {
   els.authForm.addEventListener("submit", handleSignIn);
   els.signUpButton.addEventListener("click", handleSignUp);
   els.signOutButton.addEventListener("click", handleSignOut);
+  els.musicSearchButton.addEventListener("click", handleMusicSearch);
+  els.musicSearch.addEventListener("keydown", handleMusicSearchKeydown);
   els.entryForm.addEventListener("submit", handleEntrySave);
   els.resetEntry.addEventListener("click", resetEntryForm);
   els.refreshEntries.addEventListener("click", fetchEntries);
@@ -297,6 +309,12 @@ async function handleEntrySave(event) {
   const payload = {
     user_id: state.session.user.id,
     title: els.title.value.trim(),
+    track_title: nullableText(els.trackTitle.value),
+    artist_name: nullableText(els.artistName.value),
+    album_title: nullableText(els.albumTitle.value),
+    release_date: nullableText(els.releaseDate.value),
+    musicbrainz_recording_id: nullableText(els.musicbrainzRecordingId.value),
+    musicbrainz_release_id: nullableText(els.musicbrainzReleaseId.value),
     entry_date: els.entryDate.value,
     category: els.category.value,
     bias: nullableText(els.bias.value),
@@ -327,7 +345,7 @@ async function handleEntrySave(event) {
     resetEntryForm();
     showToast("저장했어요.");
   } catch (error) {
-    showToast(error.message || "저장하지 못했어요.");
+    showToast(getDatabaseErrorMessage(error));
   }
 }
 
@@ -380,6 +398,7 @@ function makeEntryCard(entry) {
   const card = els.entryCardTemplate.content.firstElementChild.cloneNode(true);
   const cover = card.querySelector(".entry-cover");
   const title = card.querySelector("h3");
+  const music = card.querySelector(".entry-music");
   const text = card.querySelector(".entry-text");
   const time = card.querySelector("time");
   const category = card.querySelector(".category-chip");
@@ -392,6 +411,7 @@ function makeEntryCard(entry) {
   category.textContent = categoryNames[entry.category] || entry.category || "일상";
 
   renderMedia(cover, entry);
+  renderMusicSummary(music, entry);
 
   setMeta(card.querySelector(".meta-bias"), entry.bias && `최애 ${entry.bias}`);
   setMeta(card.querySelector(".meta-era"), entry.era);
@@ -408,6 +428,28 @@ function makeEntryCard(entry) {
   card.querySelector(".edit-entry").addEventListener("click", () => editEntry(entry.id));
   card.querySelector(".delete-entry").addEventListener("click", () => deleteEntry(entry.id));
   return card;
+}
+
+function renderMusicSummary(container, entry) {
+  const title = entry.track_title;
+  const artist = entry.artist_name;
+  const album = entry.album_title;
+  const release = entry.release_date;
+  if (!title && !artist && !album && !release) return;
+
+  const primary = [title, artist].filter(Boolean).join(" - ");
+  const secondary = [album, release].filter(Boolean).join(" · ");
+  if (primary) {
+    const strong = document.createElement("strong");
+    strong.textContent = primary;
+    container.appendChild(strong);
+  }
+  if (secondary) {
+    const span = document.createElement("span");
+    span.textContent = secondary;
+    container.appendChild(span);
+  }
+  container.hidden = false;
 }
 
 function renderMedia(container, entry) {
@@ -463,6 +505,123 @@ function renderMediaLink(container, url) {
   container.hidden = false;
 }
 
+function handleMusicSearchKeydown(event) {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  handleMusicSearch();
+}
+
+async function handleMusicSearch() {
+  const query = els.musicSearch.value.trim();
+  if (query.length < 2) {
+    showToast("검색어를 2자 이상 입력해 주세요.");
+    return;
+  }
+
+  els.musicSearchButton.disabled = true;
+  els.musicResults.hidden = false;
+  els.musicResults.replaceChildren(makeMusicResultStatus("검색 중..."));
+
+  try {
+    const url = new URL(MUSICBRAINZ_RECORDING_SEARCH_URL);
+    url.searchParams.set("query", query);
+    url.searchParams.set("fmt", "json");
+    url.searchParams.set("limit", "8");
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(response.status === 503 ? "잠시 후 다시 검색해 주세요." : "음악 검색에 실패했어요.");
+    }
+
+    const data = await response.json();
+    const results = (data.recordings || []).map(normalizeMusicBrainzRecording).filter(Boolean);
+    renderMusicResults(results);
+  } catch (error) {
+    els.musicResults.replaceChildren(makeMusicResultStatus(error.message || "음악 검색에 실패했어요."));
+  } finally {
+    els.musicSearchButton.disabled = false;
+  }
+}
+
+function renderMusicResults(results) {
+  els.musicResults.replaceChildren();
+  els.musicResults.hidden = false;
+
+  if (!results.length) {
+    els.musicResults.appendChild(makeMusicResultStatus("검색 결과가 없어요."));
+    return;
+  }
+
+  results.forEach((result) => {
+    const button = document.createElement("button");
+    button.className = "music-result";
+    button.type = "button";
+    button.innerHTML = `
+      <strong></strong>
+      <span></span>
+    `;
+    button.querySelector("strong").textContent = [result.trackTitle, result.artistName].filter(Boolean).join(" - ");
+    button.querySelector("span").textContent = [result.albumTitle, result.releaseDate].filter(Boolean).join(" · ") || "음반 정보 없음";
+    button.addEventListener("click", () => selectMusicResult(result));
+    els.musicResults.appendChild(button);
+  });
+}
+
+function makeMusicResultStatus(message) {
+  const status = document.createElement("div");
+  status.className = "music-result-status";
+  status.textContent = message;
+  return status;
+}
+
+function selectMusicResult(result) {
+  els.trackTitle.value = result.trackTitle || "";
+  els.artistName.value = result.artistName || "";
+  els.albumTitle.value = result.albumTitle || "";
+  els.releaseDate.value = result.releaseDate || "";
+  els.musicbrainzRecordingId.value = result.recordingId || "";
+  els.musicbrainzReleaseId.value = result.releaseId || "";
+
+  if (!els.title.value.trim()) {
+    els.title.value = [result.trackTitle, result.artistName].filter(Boolean).join(" - ");
+  }
+
+  els.musicResults.hidden = true;
+  showToast("음악 메타데이터를 채웠어요.");
+}
+
+function normalizeMusicBrainzRecording(recording) {
+  if (!recording?.title) return null;
+
+  const release = [...(recording.releases || [])].sort((a, b) => {
+    const aDate = a.date || "9999";
+    const bDate = b.date || "9999";
+    return aDate.localeCompare(bDate);
+  })[0];
+
+  return {
+    recordingId: recording.id || "",
+    releaseId: release?.id || "",
+    trackTitle: recording.title || "",
+    artistName: getArtistCreditName(recording["artist-credit"]),
+    albumTitle: release?.title || "",
+    releaseDate: release?.date || "",
+  };
+}
+
+function getArtistCreditName(artistCredit) {
+  if (!Array.isArray(artistCredit)) return "";
+  return artistCredit
+    .map((credit) => credit.name || credit.artist?.name || "")
+    .filter(Boolean)
+    .join(", ");
+}
+
 function setMeta(element, value) {
   if (!value) {
     element.hidden = true;
@@ -486,6 +645,10 @@ function getVisibleEntries() {
   const filtered = state.entries.filter((entry) => {
     const haystack = [
       entry.title,
+      entry.track_title,
+      entry.artist_name,
+      entry.album_title,
+      entry.release_date,
       entry.body,
       entry.bias,
       entry.era,
@@ -518,6 +681,12 @@ function editEntry(id) {
   state.editingId = id;
   els.editState.textContent = "EDIT";
   els.title.value = entry.title || "";
+  els.trackTitle.value = entry.track_title || "";
+  els.artistName.value = entry.artist_name || "";
+  els.albumTitle.value = entry.album_title || "";
+  els.releaseDate.value = entry.release_date || "";
+  els.musicbrainzRecordingId.value = entry.musicbrainz_recording_id || "";
+  els.musicbrainzReleaseId.value = entry.musicbrainz_release_id || "";
   els.entryDate.value = entry.entry_date || todayIso();
   els.category.value = entry.category || "daily";
   els.bias.value = entry.bias || "";
@@ -576,6 +745,10 @@ async function shareEntryImage(id) {
 function resetEntryForm() {
   state.editingId = null;
   els.entryForm.reset();
+  els.musicResults.replaceChildren();
+  els.musicResults.hidden = true;
+  els.musicbrainzRecordingId.value = "";
+  els.musicbrainzReleaseId.value = "";
   els.entryDate.value = todayIso();
   els.era.value = "Supernova";
   els.rating.value = 5;
@@ -679,6 +852,22 @@ function getAuthErrorMessage(error) {
   return message || "인증 처리에 실패했어요.";
 }
 
+function getDatabaseErrorMessage(error) {
+  const message = String(error?.message || "");
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("track_title") ||
+    lower.includes("artist_name") ||
+    lower.includes("album_title") ||
+    lower.includes("musicbrainz")
+  ) {
+    return "음악 메타데이터 컬럼이 필요해요. supabase-music-migration.sql을 먼저 실행해 주세요.";
+  }
+
+  return message || "저장하지 못했어요.";
+}
+
 function parseTags(value) {
   return value
     .split(",")
@@ -746,12 +935,23 @@ async function createShareCardBlob(entry) {
 
   ctx.fillStyle = ink;
   ctx.font = "900 64px system-ui, sans-serif";
-  const titleLines = getWrappedLines(ctx, entry.title || "Untitled", 840, 2);
+  const displayTitle = entry.track_title || entry.title || "Untitled";
+  const titleLines = getWrappedLines(ctx, displayTitle, 840, 2);
   let y = 545;
   titleLines.forEach((line) => {
     ctx.fillText(line, 108, y);
     y += 78;
   });
+
+  const musicLine = [entry.artist_name, entry.album_title, entry.release_date].filter(Boolean).join(" · ");
+  if (musicLine) {
+    ctx.fillStyle = muted;
+    ctx.font = "800 30px system-ui, sans-serif";
+    getWrappedLines(ctx, musicLine, 840, 2).forEach((line) => {
+      ctx.fillText(line, 108, y);
+      y += 42;
+    });
+  }
 
   const meta = [
     entry.bias && `최애 ${entry.bias}`,
@@ -917,7 +1117,7 @@ function getShareMediaLabel(url) {
 
 function makeShareFileName(entry) {
   const date = entry.entry_date || todayIso();
-  const slug = String(entry.title || "dreamtaku")
+  const slug = String(entry.track_title || entry.title || "dreamtaku")
     .toLowerCase()
     .replace(/[^a-z0-9가-힣]+/gi, "-")
     .replace(/^-+|-+$/g, "")
