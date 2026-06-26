@@ -6,7 +6,7 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 
 - `index.html`: 앱 화면
 - `styles.css`: 반응형 스타일
-- `app.js`: Supabase 연결, 로그인, 일기 저장/수정/삭제, 이미지/YouTube 표시
+- `app.js`: Supabase 연결, 로그인, 일기 저장/수정/삭제, 이미지/YouTube 표시, 감상 카드 PNG 내보내기
 - `supabase-schema.sql`: 테이블, 인덱스, RLS 정책
 - `assets/supernova-poster.svg`: 앱 배지 이미지
 
@@ -23,6 +23,10 @@ GitHub Pages에 올릴 수 있는 정적 덕질 일기장입니다. 화면은 Gi
 ## 미디어 URL
 
 일기 작성 폼의 `이미지 / YouTube URL`에는 이미지 파일 URL이나 YouTube 링크를 넣을 수 있습니다. 지원하는 YouTube 형식은 `youtube.com/watch?v=...`, `youtu.be/...`, `youtube.com/shorts/...`, `youtube.com/embed/...`입니다.
+
+## 이미지로 공유
+
+각 카드의 `이미지로 공유` 버튼은 브라우저에서 PNG 감상 카드를 만듭니다. 지원되는 브라우저에서는 공유 패널을 열고, 그렇지 않으면 PNG 파일을 다운로드합니다. 생성된 이미지는 Supabase에 업로드하지 않으므로 DB 저장량이 늘지 않습니다.
 
 ## 인증이 안 될 때
 

@@ -404,6 +404,7 @@ function makeEntryCard(entry) {
     tagList.appendChild(chip);
   });
 
+  card.querySelector(".share-entry").addEventListener("click", () => shareEntryImage(entry.id));
   card.querySelector(".edit-entry").addEventListener("click", () => editEntry(entry.id));
   card.querySelector(".delete-entry").addEventListener("click", () => deleteEntry(entry.id));
   return card;
@@ -545,6 +546,33 @@ async function deleteEntry(id) {
   showToast("삭제했어요.");
 }
 
+async function shareEntryImage(id) {
+  const entry = state.entries.find((item) => item.id === id);
+  if (!entry) return;
+
+  try {
+    const blob = await createShareCardBlob(entry);
+    const fileName = makeShareFileName(entry);
+    const file = new File([blob], fileName, { type: "image/png" });
+
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: entry.title || "dreamtaKU DIARIES",
+        text: "dreamtaKU DIARIES 감상 카드",
+      });
+      showToast("이미지 공유를 열었어요.");
+      return;
+    }
+
+    downloadBlob(blob, fileName);
+    showToast("감상 카드를 저장했어요.");
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    showToast(error.message || "이미지 생성에 실패했어요.");
+  }
+}
+
 function resetEntryForm() {
   state.editingId = null;
   els.entryForm.reset();
@@ -668,6 +696,244 @@ function parseRating(value) {
 function nullableText(value) {
   const trimmed = String(value || "").trim();
   return trimmed || null;
+}
+
+async function createShareCardBlob(entry) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const ink = "#161817";
+  const muted = "#68716d";
+  const cyan = "#28c2d1";
+  const lime = "#b9e83d";
+  const coral = "#ff6b59";
+
+  ctx.fillStyle = "#f4f7ef";
+  ctx.fillRect(0, 0, width, height);
+  drawGrid(ctx, width, height);
+
+  drawRoundRect(ctx, 70, 70, width - 140, height - 140, 28, "#fffefa", "#161817", 6);
+  drawRoundRect(ctx, 108, 108, width - 216, 190, 22, "#161817", "", 0);
+
+  ctx.fillStyle = lime;
+  ctx.beginPath();
+  ctx.arc(174, 172, 34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = cyan;
+  ctx.fillRect(230, 142, 72, 72);
+  ctx.fillStyle = coral;
+  ctx.beginPath();
+  ctx.moveTo(340, 218);
+  ctx.lineTo(382, 138);
+  ctx.lineTo(424, 218);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 42px system-ui, sans-serif";
+  ctx.fillText("dreamtaKU DIARIES", 108, 360);
+  ctx.fillStyle = coral;
+  ctx.font = "800 24px system-ui, sans-serif";
+  ctx.fillText("MUSIC FANDOM NOTE", 108, 400);
+
+  const category = categoryNames[entry.category] || entry.category || "감상";
+  const date = entry.entry_date ? formatDate(entry.entry_date) : todayIso();
+  drawPill(ctx, date, 108, 442, "#e7f8fa", "#05727b");
+  drawPill(ctx, category, 108 + measurePill(ctx, date) + 14, 442, "#fff1ef", "#9d372c");
+
+  ctx.fillStyle = ink;
+  ctx.font = "900 64px system-ui, sans-serif";
+  const titleLines = getWrappedLines(ctx, entry.title || "Untitled", 840, 2);
+  let y = 545;
+  titleLines.forEach((line) => {
+    ctx.fillText(line, 108, y);
+    y += 78;
+  });
+
+  const meta = [
+    entry.bias && `최애 ${entry.bias}`,
+    entry.era || "Supernova",
+    entry.mood && (moodNames[entry.mood] || entry.mood),
+    entry.rating && `${entry.rating}/5`,
+  ].filter(Boolean);
+
+  y += 8;
+  let x = 108;
+  meta.forEach((item) => {
+    const nextWidth = measurePill(ctx, item);
+    if (x + nextWidth > width - 108) {
+      x = 108;
+      y += 52;
+    }
+    drawPill(ctx, item, x, y, "#f7f8f3", muted);
+    x += nextWidth + 12;
+  });
+
+  y += 92;
+  const media = getShareMediaLabel(entry.media_url);
+  if (media) {
+    drawRoundRect(ctx, 108, y - 28, width - 216, 104, 18, "#eaf5f2", "#d9ded7", 3);
+    ctx.fillStyle = cyan;
+    ctx.font = "900 24px system-ui, sans-serif";
+    ctx.fillText(media.label, 136, y + 8);
+    ctx.fillStyle = ink;
+    ctx.font = "750 28px system-ui, sans-serif";
+    getWrappedLines(ctx, media.value, 760, 1).forEach((line) => ctx.fillText(line, 136, y + 50));
+    y += 140;
+  }
+
+  ctx.fillStyle = ink;
+  ctx.font = "800 30px system-ui, sans-serif";
+  ctx.fillText("감상 메모", 108, y);
+  y += 54;
+
+  ctx.fillStyle = "#333a37";
+  ctx.font = "500 34px system-ui, sans-serif";
+  const body = entry.body || "기록 없음";
+  const bodyLines = getWrappedLines(ctx, body.replace(/\s+/g, " "), 840, 5);
+  bodyLines.forEach((line) => {
+    ctx.fillText(line, 108, y);
+    y += 48;
+  });
+
+  const tags = (entry.tags || []).slice(0, 8).map((tag) => `#${tag}`);
+  if (tags.length) {
+    y = Math.min(y + 40, height - 206);
+    x = 108;
+    tags.forEach((tag) => {
+      const nextWidth = measurePill(ctx, tag);
+      if (x + nextWidth > width - 108) {
+        x = 108;
+        y += 52;
+      }
+      drawPill(ctx, tag, x, y, "#fff1ef", "#9d372c");
+      x += nextWidth + 12;
+    });
+  }
+
+  ctx.fillStyle = muted;
+  ctx.font = "800 22px system-ui, sans-serif";
+  ctx.fillText("exported from dreamtaKU DIARIES", 108, height - 118);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("이미지를 만들지 못했어요."));
+    }, "image/png");
+  });
+}
+
+function drawGrid(ctx, width, height) {
+  ctx.strokeStyle = "rgba(40, 194, 209, 0.14)";
+  ctx.lineWidth = 2;
+  for (let x = 0; x <= width; x += 48) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(255, 107, 89, 0.12)";
+  for (let y = 0; y <= height; y += 48) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+}
+
+function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke, lineWidth) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x, y + height, radius);
+  ctx.arcTo(x, y + height, x, y, radius);
+  ctx.arcTo(x, y, x + width, y, radius);
+  ctx.closePath();
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  if (stroke && lineWidth) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+}
+
+function drawPill(ctx, text, x, y, fill, color) {
+  const width = measurePill(ctx, text);
+  drawRoundRect(ctx, x, y - 30, width, 40, 20, fill, "", 0);
+  ctx.fillStyle = color;
+  ctx.font = "850 22px system-ui, sans-serif";
+  ctx.fillText(text, x + 18, y - 3);
+}
+
+function measurePill(ctx, text) {
+  ctx.font = "850 22px system-ui, sans-serif";
+  return Math.ceil(ctx.measureText(text).width) + 36;
+}
+
+function getWrappedLines(ctx, text, maxWidth, maxLines) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+
+  words.forEach((word) => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      line = candidate;
+      return;
+    }
+
+    if (line) lines.push(line);
+    line = word;
+  });
+
+  if (line) lines.push(line);
+
+  if (lines.length > maxLines) {
+    const clipped = lines.slice(0, maxLines);
+    clipped[maxLines - 1] = `${clipped[maxLines - 1].replace(/[.。…]+$/, "")}...`;
+    return clipped;
+  }
+
+  return lines;
+}
+
+function getShareMediaLabel(url) {
+  if (!url) return null;
+  const youtube = getYouTubeMedia(url);
+  if (youtube.watchUrl) {
+    return { label: "YOUTUBE", value: youtube.watchUrl };
+  }
+  if (looksLikeImage(url)) {
+    return { label: "IMAGE LINK", value: url };
+  }
+  return { label: "LINK", value: url };
+}
+
+function makeShareFileName(entry) {
+  const date = entry.entry_date || todayIso();
+  const slug = String(entry.title || "dreamtaku")
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 36);
+  return `dreamtaku-${date}-${slug || "diary"}.png`;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function formatDate(value) {
