@@ -501,6 +501,7 @@ function renderMedia(container, entry) {
       image.remove();
       renderMediaLink(container, entry.media_url);
     });
+    container.classList.add("is-image");
     container.appendChild(image);
     container.hidden = false;
     return;
@@ -523,6 +524,7 @@ async function renderSupabaseStorageImage(container, entry) {
     renderMediaLink(container, entry.media_url);
   });
 
+  container.classList.add("is-image");
   container.appendChild(image);
   container.hidden = false;
 
@@ -1079,6 +1081,7 @@ async function createShareCardBlob(entry) {
   const cyan = "#28c2d1";
   const lime = "#b9e83d";
   const coral = "#ff6b59";
+  const shareImage = await getShareImage(entry);
 
   ctx.fillStyle = "#f4f7ef";
   ctx.fillRect(0, 0, width, height);
@@ -1152,9 +1155,15 @@ async function createShareCardBlob(entry) {
     x += nextWidth + 12;
   });
 
-  y += 92;
+  y += 72;
   const media = getShareMediaLabel(entry.media_url);
-  if (media) {
+  if (shareImage) {
+    const imageTop = y - 28;
+    const imageHeight = Math.min(320, Math.max(180, height - imageTop - 300));
+    drawRoundRect(ctx, 108, imageTop, width - 216, imageHeight, 18, "#f8fbfa", "#d9ded7", 3);
+    drawImageContain(ctx, shareImage.image, 136, imageTop + 24, width - 272, imageHeight - 48);
+    y = imageTop + imageHeight + 58;
+  } else if (media) {
     drawRoundRect(ctx, 108, y - 28, width - 216, 104, 18, "#eaf5f2", "#d9ded7", 3);
     ctx.fillStyle = cyan;
     ctx.font = "900 24px system-ui, sans-serif";
@@ -1173,7 +1182,8 @@ async function createShareCardBlob(entry) {
   ctx.fillStyle = "#333a37";
   ctx.font = "500 34px system-ui, sans-serif";
   const body = entry.body || "기록 없음";
-  const bodyLines = getWrappedLines(ctx, body.replace(/\s+/g, " "), 840, 5);
+  const bodyMaxLines = Math.max(1, Math.min(5, Math.floor(Math.max(48, height - 210 - y) / 48)));
+  const bodyLines = getWrappedLines(ctx, body.replace(/\s+/g, " "), 840, bodyMaxLines);
   bodyLines.forEach((line) => {
     ctx.fillText(line, 108, y);
     y += 48;
@@ -1198,12 +1208,16 @@ async function createShareCardBlob(entry) {
   ctx.font = "800 22px system-ui, sans-serif";
   ctx.fillText("exported from dreamtaKU DIARIES", 108, height - 118);
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("이미지를 만들지 못했어요."));
-    }, "image/png");
-  });
+  try {
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("이미지를 만들지 못했어요."));
+      }, "image/png");
+    });
+  } finally {
+    shareImage?.cleanup?.();
+  }
 }
 
 function drawGrid(ctx, width, height) {
@@ -1241,6 +1255,17 @@ function drawRoundRect(ctx, x, y, width, height, radius, fill, stroke, lineWidth
     ctx.lineWidth = lineWidth;
     ctx.stroke();
   }
+}
+
+function drawImageContain(ctx, image, x, y, width, height) {
+  const imageWidth = image.naturalWidth || image.width || 1;
+  const imageHeight = image.naturalHeight || image.height || 1;
+  const scale = Math.min(width / imageWidth, height / imageHeight);
+  const drawWidth = imageWidth * scale;
+  const drawHeight = imageHeight * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
 function drawPill(ctx, text, x, y, fill, color) {
@@ -1281,6 +1306,61 @@ function getWrappedLines(ctx, text, maxWidth, maxLines) {
   }
 
   return lines;
+}
+
+async function getShareImage(entry) {
+  const src = await getShareImageSource(entry.media_url);
+  if (!src) return null;
+
+  try {
+    return await loadCanvasImage(src);
+  } catch {
+    return null;
+  }
+}
+
+async function getShareImageSource(url) {
+  if (!url) return "";
+
+  if (isSupabaseStorageUrl(url)) {
+    if (!state.client) return "";
+    const path = getSupabaseStoragePath(url);
+    if (!path) return "";
+    const { data, error } = await state.client.storage.from(STORAGE_BUCKET).createSignedUrl(path, 60 * 10);
+    if (error || !data?.signedUrl) return "";
+    return data.signedUrl;
+  }
+
+  return looksLikeImage(url) ? url : "";
+}
+
+async function loadCanvasImage(src) {
+  const response = await fetch(src, { mode: "cors" });
+  if (!response.ok) throw new Error("이미지를 불러오지 못했어요.");
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    return {
+      image,
+      cleanup: () => URL.revokeObjectURL(objectUrl),
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.addEventListener("load", () => resolve(image), { once: true });
+    image.addEventListener("error", () => reject(new Error("이미지를 불러오지 못했어요.")), { once: true });
+    image.src = src;
+  });
 }
 
 function getShareMediaLabel(url) {

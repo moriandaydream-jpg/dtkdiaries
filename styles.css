@@ -536,12 +536,17 @@ i[data-lucide] {
 }
 
 .entry-cover img {
-  object-fit: cover;
+  object-fit: contain;
+  background: #fffefa;
 }
 
 .entry-cover iframe {
   border: 0;
   background: #161817;
+}
+
+.entry-cover.is-image {
+  background: #fffefa;
 }
 
 .entry-cover.is-video {
