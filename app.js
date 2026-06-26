@@ -1137,16 +1137,18 @@ function nullableText(value) {
 async function createShareCardBlob(entry) {
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
-  canvas.height = 1350;
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
-  const height = canvas.height;
   const ink = "#161817";
   const muted = "#68716d";
   const cyan = "#28c2d1";
   const lime = "#b9e83d";
   const coral = "#ff6b59";
   const shareImage = await getShareImage(entry);
+  const layout = buildShareCardLayout(ctx, entry, shareImage, width);
+
+  canvas.height = layout.height;
+  const height = canvas.height;
 
   ctx.fillStyle = "#f4f7ef";
   ctx.fillRect(0, 0, width, height);
@@ -1183,91 +1185,53 @@ async function createShareCardBlob(entry) {
 
   ctx.fillStyle = ink;
   ctx.font = "900 64px system-ui, sans-serif";
-  const displayTitle = entry.track_title || entry.title || "Untitled";
-  const titleLines = getWrappedLines(ctx, displayTitle, 840, 2);
   let y = 545;
-  titleLines.forEach((line) => {
+  layout.titleLines.forEach((line) => {
     ctx.fillText(line, 108, y);
     y += 78;
   });
 
-  const musicLine = [entry.artist_name, entry.album_title, entry.release_date].filter(Boolean).join(" · ");
-  if (musicLine) {
+  if (layout.musicLines.length) {
     ctx.fillStyle = muted;
     ctx.font = "800 30px system-ui, sans-serif";
-    getWrappedLines(ctx, musicLine, 840, 2).forEach((line) => {
+    layout.musicLines.forEach((line) => {
       ctx.fillText(line, 108, y);
       y += 42;
     });
   }
 
-  const meta = [
-    entry.bias && `최애 ${entry.bias}`,
-    entry.era || "Supernova",
-    ...parseMoods(entry.mood).map(moodLabel),
-    entry.rating && `${entry.rating}/5`,
-  ].filter(Boolean);
-
-  y += 8;
-  let x = 108;
-  meta.forEach((item) => {
-    const nextWidth = measurePill(ctx, item);
-    if (x + nextWidth > width - 108) {
-      x = 108;
-      y += 52;
-    }
-    drawPill(ctx, item, x, y, "#f7f8f3", muted);
-    x += nextWidth + 12;
+  layout.metaPills.forEach((pill) => {
+    drawPill(ctx, pill.text, pill.x, pill.y, "#f7f8f3", muted);
   });
 
-  y += 72;
-  const media = getShareMediaLabel(entry.media_url);
-  if (shareImage) {
-    const imageTop = y - 28;
-    const imageHeight = Math.min(320, Math.max(180, height - imageTop - 300));
-    drawRoundRect(ctx, 108, imageTop, width - 216, imageHeight, 18, "#f8fbfa", "#d9ded7", 3);
-    drawImageContain(ctx, shareImage.image, 136, imageTop + 24, width - 272, imageHeight - 48);
-    y = imageTop + imageHeight + 58;
-  } else if (media) {
-    drawRoundRect(ctx, 108, y - 28, width - 216, 104, 18, "#eaf5f2", "#d9ded7", 3);
+  if (layout.imageBlock) {
+    drawRoundRect(ctx, 108, layout.imageBlock.top, width - 216, layout.imageBlock.height, 18, "#f8fbfa", "#d9ded7", 3);
+    drawImageContain(ctx, shareImage.image, 136, layout.imageBlock.top + 24, width - 272, layout.imageBlock.height - 48);
+  } else if (layout.mediaBlock) {
+    drawRoundRect(ctx, 108, layout.mediaBlock.top, width - 216, layout.mediaBlock.height, 18, "#eaf5f2", "#d9ded7", 3);
     ctx.fillStyle = cyan;
     ctx.font = "900 24px system-ui, sans-serif";
-    ctx.fillText(media.label, 136, y + 8);
+    ctx.fillText(layout.mediaBlock.label, 136, layout.mediaBlock.top + 36);
     ctx.fillStyle = ink;
     ctx.font = "750 28px system-ui, sans-serif";
-    getWrappedLines(ctx, media.value, 760, 1).forEach((line) => ctx.fillText(line, 136, y + 50));
-    y += 140;
+    layout.mediaBlock.valueLines.forEach((line, index) => {
+      ctx.fillText(line, 136, layout.mediaBlock.top + 78 + index * 34);
+    });
   }
 
   ctx.fillStyle = ink;
   ctx.font = "800 30px system-ui, sans-serif";
-  ctx.fillText("감상 메모", 108, y);
-  y += 54;
+  ctx.fillText("감상 메모", 108, layout.bodyTitleY);
 
   ctx.fillStyle = "#333a37";
   ctx.font = "500 34px system-ui, sans-serif";
-  const body = entry.body || "기록 없음";
-  const bodyMaxLines = Math.max(1, Math.min(5, Math.floor(Math.max(48, height - 210 - y) / 48)));
-  const bodyLines = getWrappedLines(ctx, body.replace(/\s+/g, " "), 840, bodyMaxLines);
-  bodyLines.forEach((line) => {
-    ctx.fillText(line, 108, y);
-    y += 48;
+  layout.bodyLines.forEach((line, index) => {
+    ctx.fillText(line, 108, layout.bodyStartY + index * 48);
   });
 
-  const tags = (entry.tags || []).slice(0, 8).map((tag) => `#${tag}`);
-  if (tags.length) {
-    y = Math.min(y + 40, height - 206);
-    x = 108;
-    tags.forEach((tag) => {
-      const nextWidth = measurePill(ctx, tag);
-      if (x + nextWidth > width - 108) {
-        x = 108;
-        y += 52;
-      }
-      drawPill(ctx, tag, x, y, "#fff1ef", "#9d372c");
-      x += nextWidth + 12;
-    });
-  }
+  layout.tagPills.forEach((pill) => {
+    drawPill(ctx, pill.text, pill.x, pill.y, "#fff1ef", "#9d372c");
+  });
 
   ctx.fillStyle = muted;
   ctx.font = "800 22px system-ui, sans-serif";
@@ -1283,6 +1247,96 @@ async function createShareCardBlob(entry) {
   } finally {
     shareImage?.cleanup?.();
   }
+}
+
+function buildShareCardLayout(ctx, entry, shareImage, width) {
+  ctx.font = "900 64px system-ui, sans-serif";
+  const displayTitle = entry.track_title || entry.title || "Untitled";
+  const titleLines = getWrappedLines(ctx, displayTitle, 840);
+  let y = 545 + titleLines.length * 78;
+
+  const musicLine = [entry.artist_name, entry.album_title, entry.release_date].filter(Boolean).join(" · ");
+  ctx.font = "800 30px system-ui, sans-serif";
+  const musicLines = musicLine ? getWrappedLines(ctx, musicLine, 840) : [];
+  y += musicLines.length * 42;
+
+  const meta = [
+    entry.bias && `최애 ${entry.bias}`,
+    entry.era || "Supernova",
+    ...parseMoods(entry.mood).map(moodLabel),
+    entry.rating && `${entry.rating}/5`,
+  ].filter(Boolean);
+
+  y += 8;
+  let x = 108;
+  const metaPills = [];
+  meta.forEach((item) => {
+    const nextWidth = measurePill(ctx, item);
+    if (x + nextWidth > width - 108) {
+      x = 108;
+      y += 52;
+    }
+    metaPills.push({ text: item, x, y });
+    x += nextWidth + 12;
+  });
+
+  y += 72;
+  const media = getShareMediaLabel(entry.media_url);
+  let imageBlock = null;
+  let mediaBlock = null;
+  if (shareImage) {
+    imageBlock = {
+      top: y - 28,
+      height: 320,
+    };
+    y = imageBlock.top + imageBlock.height + 58;
+  } else if (media) {
+    ctx.font = "750 28px system-ui, sans-serif";
+    const valueLines = getWrappedLines(ctx, media.value, 760);
+    mediaBlock = {
+      label: media.label,
+      valueLines,
+      top: y - 28,
+      height: Math.max(104, 104 + Math.max(0, valueLines.length - 1) * 34),
+    };
+    y = mediaBlock.top + mediaBlock.height + 64;
+  }
+
+  const bodyTitleY = y;
+  const bodyStartY = bodyTitleY + 54;
+  ctx.font = "500 34px system-ui, sans-serif";
+  const body = entry.body || "기록 없음";
+  const bodyLines = getWrappedLines(ctx, body, 840);
+  y = bodyStartY + bodyLines.length * 48;
+
+  const tags = (entry.tags || []).map((tag) => `#${tag}`);
+  const tagPills = [];
+  if (tags.length) {
+    y += 40;
+    x = 108;
+    tags.forEach((tag) => {
+      const nextWidth = measurePill(ctx, tag);
+      if (x + nextWidth > width - 108) {
+        x = 108;
+        y += 52;
+      }
+      tagPills.push({ text: tag, x, y });
+      x += nextWidth + 12;
+    });
+  }
+
+  return {
+    height: Math.max(1350, Math.ceil(y + 190)),
+    titleLines,
+    musicLines,
+    metaPills,
+    imageBlock,
+    mediaBlock,
+    bodyTitleY,
+    bodyStartY,
+    bodyLines,
+    tagPills,
+  };
 }
 
 function drawGrid(ctx, width, height) {
@@ -1346,29 +1400,59 @@ function measurePill(ctx, text) {
   return Math.ceil(ctx.measureText(text).width) + 36;
 }
 
-function getWrappedLines(ctx, text, maxWidth, maxLines) {
-  const words = String(text || "").split(/\s+/).filter(Boolean);
+function getWrappedLines(ctx, text, maxWidth, maxLines = Infinity) {
+  const paragraphs = String(text || "").split(/\r?\n/);
   const lines = [];
-  let line = "";
 
-  words.forEach((word) => {
-    const candidate = line ? `${line} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth) {
-      line = candidate;
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    let line = "";
+
+    if (!words.length) {
+      if (paragraphIndex > 0) lines.push("");
       return;
     }
 
+    words.forEach((word) => {
+      splitLongWord(ctx, word, maxWidth).forEach((chunk) => {
+        const candidate = line ? `${line} ${chunk}` : chunk;
+        if (ctx.measureText(candidate).width <= maxWidth) {
+          line = candidate;
+          return;
+        }
+
+        if (line) lines.push(line);
+        line = chunk;
+      });
+    });
+
     if (line) lines.push(line);
-    line = word;
   });
 
-  if (line) lines.push(line);
-
-  if (lines.length > maxLines) {
+  if (Number.isFinite(maxLines) && lines.length > maxLines) {
     return lines.slice(0, maxLines);
   }
 
   return lines;
+}
+
+function splitLongWord(ctx, word, maxWidth) {
+  if (ctx.measureText(word).width <= maxWidth) return [word];
+
+  const chunks = [];
+  let chunk = "";
+  Array.from(word).forEach((char) => {
+    const candidate = `${chunk}${char}`;
+    if (chunk && ctx.measureText(candidate).width > maxWidth) {
+      chunks.push(chunk);
+      chunk = char;
+      return;
+    }
+    chunk = candidate;
+  });
+
+  if (chunk) chunks.push(chunk);
+  return chunks;
 }
 
 async function getShareImage(entry) {
